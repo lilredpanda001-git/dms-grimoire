@@ -52,13 +52,12 @@ export function extractJsonFromText(rawText) {
  * @throws {AppError} On timeout or parse failure (non-fatal, caught upstream)
  */
 export async function callLlm({ systemPrompt, userPrompt, llmOverride = {} }) {
-    // Gunakan endpoint resmi Gemini OpenAI-compatible jika endpoint di env belum diset
-    const defaultGeminiEndpoint = "[https://generativelanguage.googleapis.com/v1beta/openai/chat/completions](https://generativelanguage.googleapis.com/v1beta/openai/chat/completions)";
+    const defaultGeminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
     
     const llm = {
         endpoint: config.llm?.endpoint || defaultGeminiEndpoint,
         apiKey: config.llm?.apiKey || process.env.GEMINI_API_KEY,
-        model: llmOverride.model || config.llm?.model || "gemini-1.5-flash",
+        model: llmOverride.model || config.llm?.model || "gemini-3.5-flash-lite",
         timeoutMs: llmOverride.timeoutMs || config.llm?.timeoutMs || 30000,
     };
 

@@ -15,6 +15,16 @@ const ROOT = path.resolve(__dirname, "..", "..");
 
 dotenv.config({ path: path.join(ROOT, ".env") });
 
+const nodeEnv = process.env.NODE_ENV || "development";
+const llmEndpoint = env("LLM_ENDPOINT", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions");
+
+if (
+	nodeEnv === "production" &&
+	/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(llmEndpoint)
+) {
+	throw new Error("[config] LLM_ENDPOINT must be publicly reachable in production, not localhost/127.0.0.1");
+}
+
 function env(key, fallback = undefined) {
 	const val = process.env[key];
 	if (val !== undefined && val !== "") return val;
@@ -34,15 +44,15 @@ function envInt(key, fallback = undefined) {
 
 export const config = Object.freeze({
 	llm: Object.freeze({
-		endpoint: env("LLM_ENDPOINT", "http://127.0.0.1:7788/v1/chat/completions"),
+		endpoint: llmEndpoint,
 		apiKey: env("LLM_API_KEY", ""),
-		model: env("LLM_MODEL", "gpt-5.6-luna"),
+		model: env("LLM_MODEL", "gemini-2.5-flash"),
 		timeoutMs: envInt("LLM_TIMEOUT_MS", 30000),
 	}),
 
 	server: Object.freeze({
 		port: envInt("PORT", 3000),
-		nodeEnv: env("NODE_ENV", "development"),
+		nodeEnv,
 	}),
 
 	render: Object.freeze({

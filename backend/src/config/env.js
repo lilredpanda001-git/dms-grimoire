@@ -17,6 +17,16 @@ const ROOT = path.resolve(__dirname, "..", "..");
 
 dotenv.config({ path: path.join(ROOT, ".env") });
 
+const nodeEnv = process.env.NODE_ENV || "development";
+const mcpBaseUrl = env("MCP_BASE_URL", "http://localhost:3000");
+
+if (
+	nodeEnv === "production" &&
+	/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/i.test(mcpBaseUrl)
+) {
+	throw new Error("[config] MCP_BASE_URL must be publicly reachable in production, not localhost/127.0.0.1");
+}
+
 function env(key, fallback = undefined) {
 	const val = process.env[key];
 	if (val !== undefined && val !== "") return val;
@@ -51,7 +61,7 @@ export const config = Object.freeze({
 	}),
 
 	mcp: Object.freeze({
-		baseUrl: env("MCP_BASE_URL", "http://localhost:3000"),
+		baseUrl: mcpBaseUrl,
 	}),
 
 	cors: Object.freeze({
