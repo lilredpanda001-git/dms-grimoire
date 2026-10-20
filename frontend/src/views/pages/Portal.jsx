@@ -132,8 +132,9 @@ export default function Portal() {
                 {myCampaigns.map((camp) => (
                   <div 
                     key={camp.id}
-                    onClick={() => enterCampaign(camp.role, camp.id)} // <--- TAMBAHKAN camp.id DI SINI
-                    className="bg-white border ... "
+                    onClick={() => enterCampaign(camp.role, camp.id)}
+                    // Tambahkan rounded-xl dan p-6 agar seragam dengan kartu di sebelah kanan
+                    className="bg-white border border-parchment-dark rounded-xl p-6 shadow-sm hover:shadow-md cursor-pointer transition-shadow group flex flex-col justify-between"
                   >
                     <div>
                       <div className="flex justify-between items-start mb-3">
