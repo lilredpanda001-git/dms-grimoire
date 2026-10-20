@@ -16,19 +16,19 @@ export default function Login() {
     setLoading(true); 
     setError('');    
   
-  try {
-    const userData = await loginUser(email, password);
-    if (userData.role === 'dm') {
-      navigate('/dashboard/dm');
-    } else {
-      navigate('/dashboard/player');
+    try {
+      // Tunggu proses login selesai
+      await loginUser(email, password);
+      
+      // Langsung arahkan ke Portal, biarkan Portal yang memilah 
+      // apakah dia harus ke Dashboard DM, Player, atau milih role dulu.
+      navigate('/portal');
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false); 
     }
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setLoading(false); 
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-grimoire-dark flex items-center justify-center p-4">

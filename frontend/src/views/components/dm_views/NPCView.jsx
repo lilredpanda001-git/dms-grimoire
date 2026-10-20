@@ -5,8 +5,8 @@ import { db } from '../../../firebase';
 import { deleteNpc } from '../../../controllers/npcController';
 import EditNPCModal from '../EditNPCModal';
 
-// Menerima prop onOpenScribe agar bisa memanggil modal AI dari Dashboard utama
-export default function NpcView({ onOpenScribe }) {
+// TAMBAHKAN activeCampaignId SEBAGAI PROP
+export default function NpcView({ activeCampaignId, onOpenScribe }) {
   const [npcs, setNpcs] = useState([]);
   const [expandedId, setExpandedId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -15,7 +15,15 @@ export default function NpcView({ onOpenScribe }) {
   const [selectedNpcToEdit, setSelectedNpcToEdit] = useState(null);
 
   useEffect(() => {
-    const npcRef = ref(db, 'campaign/active/npcs');
+    // Jika tidak ada campaign yang aktif, kosongkan daftar NPC
+    if (!activeCampaignId) {
+      setNpcs([]);
+      setLoading(false);
+      return;
+    }
+
+    // UBAH PATH MENJADI DINAMIS
+    const npcRef = ref(db, `campaigns/${activeCampaignId}/npcs`);
     const unsubNpc = onValue(npcRef, (snapshot) => {
       if (snapshot.exists()) {
         const npcArray = Object.values(snapshot.val()).sort((a, b) => b.createdAt - a.createdAt);
@@ -27,7 +35,7 @@ export default function NpcView({ onOpenScribe }) {
     });
 
     return () => unsubNpc();
-  }, []);
+  }, [activeCampaignId]); // Jadikan activeCampaignId sebagai dependency
 
   // Filter NPC berdasarkan pencarian nama atau role
   const filteredNpcs = npcs.filter(npc => 
@@ -75,7 +83,7 @@ export default function NpcView({ onOpenScribe }) {
           {filteredNpcs.map(npc => (
             <div key={npc.id} className="bg-white border border-parchment-dark rounded-xl p-5 shadow-sm relative group hover:border-grimoire-gold transition-colors flex flex-col h-full">
               
-              {/* Tombol Aksi (Edit & Delete) muncul saat di-hover */}
+              {/* Tombol Aksi (Edit & Delete) */}
               <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                 <button 
                   onClick={(e) => { 
@@ -91,7 +99,8 @@ export default function NpcView({ onOpenScribe }) {
                 <button 
                   onClick={(e) => { 
                     e.stopPropagation();
-                    if(window.confirm(`Hapus ${npc.name} dari catatan?`)) deleteNpc(npc.id); 
+                    // KIRIM activeCampaignId KE FUNGSI DELETE
+                    if(window.confirm(`Hapus ${npc.name} dari catatan?`)) deleteNpc(activeCampaignId, npc.id); 
                   }}
                   className="text-gray-300 hover:text-red-500 transition-colors bg-white/80 rounded-full p-1"
                   title="Hapus NPC"
@@ -114,7 +123,6 @@ export default function NpcView({ onOpenScribe }) {
                 <MapPin className="w-3 h-3" /> {npc.location}
               </div>
 
-              {/* Area Deskripsi yang bisa di-klik untuk Expand/Collapse */}
               <div 
                 className="mb-4 flex-1 cursor-pointer group/desc relative"
                 onClick={() => setExpandedId(expandedId === npc.id ? null : npc.id)}
@@ -148,13 +156,16 @@ export default function NpcView({ onOpenScribe }) {
           </button>
         </div>
       )}
+      
+      {/* TERUSKAN activeCampaignId KE MODAL EDIT */}
       <EditNPCModal 
         isOpen={isEditModalOpen} 
         onClose={() => {
           setIsEditModalOpen(false);
           setSelectedNpcToEdit(null);
         }} 
-        npcData={selectedNpcToEdit} 
+        npcData={selectedNpcToEdit}
+        activeCampaignId={activeCampaignId} 
       />
     </div>
   );

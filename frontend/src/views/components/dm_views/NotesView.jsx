@@ -4,7 +4,8 @@ import { ref, onValue } from 'firebase/database';
 import { db } from '../../../firebase';
 import { addSession, updateSession, deleteSession } from '../../../controllers/sessionController';
 
-export default function NotesView() {
+// TERIMA activeCampaignId SEBAGAI PROP
+export default function NotesView({ activeCampaignId }) {
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,17 +15,28 @@ export default function NotesView() {
   const [editContent, setEditContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Tarik data dari Firebase secara Real-time
+  // Tarik data dari Firebase secara Real-time berdasarkan Campaign ID
   useEffect(() => {
-    const sessionsRef = ref(db, 'campaign/active/sessions');
+    if (!activeCampaignId) {
+      setSessions([]);
+      setActiveSession(null);
+      setLoading(false);
+      return;
+    }
+
+    const sessionsRef = ref(db, `campaigns/${activeCampaignId}/sessions`);
     const unsub = onValue(sessionsRef, (snapshot) => {
       if (snapshot.exists()) {
         const sessionArray = Object.values(snapshot.val()).sort((a, b) => b.createdAt - a.createdAt);
         setSessions(sessionArray);
         
-        // Auto-select sesi teratas jika belum ada yang dipilih
-        if (!activeSession && sessionArray.length > 0) {
-          selectSession(sessionArray[0]);
+        // Auto-select sesi teratas jika belum ada yang dipilih ATAU jika yang sedang dipilih sudah dihapus
+        if (!activeSession || !sessionArray.find(s => s.id === activeSession.id)) {
+          if (sessionArray.length > 0) {
+             selectSession(sessionArray[0]);
+          } else {
+             setActiveSession(null);
+          }
         }
       } else {
         setSessions([]);
@@ -34,7 +46,7 @@ export default function NotesView() {
     });
 
     return () => unsub();
-  }, []);
+  }, [activeCampaignId]); // Jadikan activeCampaignId dependency agar reset jika pindah campaign
 
   const selectSession = (session) => {
     setActiveSession(session);
@@ -43,17 +55,17 @@ export default function NotesView() {
   };
 
   const handleCreateSession = async () => {
+    if (!activeCampaignId) return;
     const title = prompt("Masukkan judul sesi (misal: Sesi 12 - Pertempuran di Gua Goblin):");
     if (title) {
-      const newId = await addSession(title);
-      // Data akan otomatis ter-update via onValue
+      await addSession(activeCampaignId, title);
     }
   };
 
   const handleSave = async () => {
-    if (!activeSession) return;
+    if (!activeSession || !activeCampaignId) return;
     setIsSaving(true);
-    await updateSession(activeSession.id, {
+    await updateSession(activeCampaignId, activeSession.id, {
       title: editTitle,
       content: editContent
     });
@@ -64,10 +76,25 @@ export default function NotesView() {
   };
 
   const handleToggleComplete = async () => {
-    if (!activeSession) return;
+    if (!activeSession || !activeCampaignId) return;
     const newStatus = !activeSession.isCompleted;
-    await updateSession(activeSession.id, { isCompleted: newStatus });
+    
+    // Perbarui UI seketika
     setActiveSession(prev => ({...prev, isCompleted: newStatus}));
+    
+    // Kirim ke backend (Ini otomatis menembak Chronicle jika true)
+    await updateSession(activeCampaignId, activeSession.id, { isCompleted: newStatus });
+    
+    if (newStatus === true) {
+       alert(`Sesi "${activeSession.title}" selesai dan otomatis masuk ke Chronicle!`);
+    }
+  };
+
+  const handleDelete = async () => {
+     if (!activeSession || !activeCampaignId) return;
+     if(window.confirm('Hapus sesi ini secara permanen?')) {
+         await deleteSession(activeCampaignId, activeSession.id);
+     }
   };
 
   if (loading) return <div className="animate-pulse text-gray-400 p-8">Membuka catatan...</div>;
@@ -155,7 +182,7 @@ export default function NotesView() {
 
             <div className="p-4 bg-gray-50 border-t border-parchment-dark flex justify-between items-center">
               <button 
-                onClick={() => { if(window.confirm('Hapus sesi ini secara permanen?')) deleteSession(activeSession.id) }}
+                onClick={handleDelete}
                 className="text-gray-400 hover:text-red-500 transition-colors flex items-center gap-2 text-sm font-bold"
               >
                 <Trash2 className="w-4 h-4" /> Hapus

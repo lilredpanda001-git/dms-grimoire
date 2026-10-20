@@ -1,10 +1,12 @@
-import { ref, push, set, update, remove } from 'firebase/database';
+import { ref, push, set, update, remove, get } from 'firebase/database';
 import { db } from '../firebase';
 
-// Tambah sesi baru
-export const addSession = async (title = 'Sesi Baru') => {
+// Tambah sesi baru (Path: campaigns/{campaignId}/sessions)
+export const addSession = async (campaignId, title = 'Sesi Baru') => {
+  if (!campaignId) throw new Error("Campaign ID wajib disertakan.");
+  
   try {
-    const sessionListRef = ref(db, 'campaign/active/sessions');
+    const sessionListRef = ref(db, `campaigns/${campaignId}/sessions`);
     const newSessionRef = push(sessionListRef);
     
     await set(newSessionRef, {
@@ -24,33 +26,33 @@ export const addSession = async (title = 'Sesi Baru') => {
   }
 };
 
-// Pastikan fungsi updateSession menerima campaignId
+// Update sesi & Trigger auto-Chronicle
 export const updateSession = async (campaignId, sessionId, updatedData) => {
   if (!campaignId || !sessionId) return;
   try {
     const sessionRef = ref(db, `campaigns/${campaignId}/sessions/${sessionId}`);
     
-    // Ambil data lama sesi untuk dicek status isCompleted-nya
+    // Ambil data lama sebelum di-update untuk verifikasi
     const snapshot = await get(sessionRef);
     if (snapshot.exists()) {
       const oldData = snapshot.val();
       
-      // Jika sebelumnya belum selesai, dan sekarang diubah menjadi selesai (true)
+      // LOGIKA TRIGGER: Jika sebelumnya isCompleted false, dan sekarang menjadi true
       if (!oldData.isCompleted && updatedData.isCompleted === true) {
         // Otomatis buat entri baru ke Chronicle campaign tersebut
         const chronRef = ref(db, `campaigns/${campaignId}/chronicles`);
         const newChronRef = push(chronRef);
         await set(newChronRef, {
           id: newChronRef.key,
-          title: updatedData.title || oldData.title,
-          sessionNumber: oldData.sessionNumber || 1, // Atau ambil dari format judul
-          description: updatedData.content || oldData.content,
+          title: updatedData.title || oldData.title || "Sesi Tanpa Judul",
+          sessionNumber: oldData.sessionNumber || 1, 
+          description: updatedData.content || oldData.content || "Tidak ada detail sesi.",
           createdAt: Date.now()
         });
       }
     }
 
-    // Lakukan update data sesi seperti biasa
+    // Update data session utamanya
     await update(sessionRef, {
       ...updatedData,
       updatedAt: Date.now()
@@ -61,10 +63,11 @@ export const updateSession = async (campaignId, sessionId, updatedData) => {
   }
 };
 
-// Hapus sesi
-export const deleteSession = async (id) => {
+// Hapus sesi (Path disesuaikan ke campaigns/)
+export const deleteSession = async (campaignId, id) => {
+  if (!campaignId || !id) return;
   try {
-    const sessionRef = ref(db, `campaign/active/sessions/${id}`);
+    const sessionRef = ref(db, `campaigns/${campaignId}/sessions/${id}`);
     await remove(sessionRef);
   } catch (error) {
     console.error("Error deleting session: ", error);

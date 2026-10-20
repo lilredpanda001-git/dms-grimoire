@@ -1,22 +1,44 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { X, Scroll } from 'lucide-react';
-import { addLore } from '../../controllers/loreController';
+import { addLore, updateLore } from '../../controllers/loreController';
 
-export default function AddLoreModal({ isOpen, onClose, activeCampaignId }) {
+export default function AddLoreModal({ isOpen, onClose, activeCampaignId, loreToEdit }) {
   const [formData, setFormData] = useState({ title: '', category: 'Location', content: '' });
   const [loading, setLoading] = useState(false);
+
+  // Jika loreToEdit ada, isi form dengan data tersebut (Mode Edit)
+  useEffect(() => {
+    if (loreToEdit) {
+      setFormData({
+        title: loreToEdit.title || '',
+        category: loreToEdit.category || 'Location',
+        content: loreToEdit.content || ''
+      });
+    } else {
+      setFormData({ title: '', category: 'Location', content: '' });
+    }
+  }, [loreToEdit, isOpen]);
 
   if (!isOpen) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!activeCampaignId) {
+      alert("Pilih campaign terlebih dahulu!");
+      return;
+    }
+    
     setLoading(true);
     try {
-      await addLore(formData);
-      setFormData({ title: '', category: 'Location', content: '' });
+      if (loreToEdit) {
+        await updateLore(activeCampaignId, loreToEdit.id, formData);
+      } else {
+        await addLore(activeCampaignId, formData);
+      }
       onClose();
     } catch (error) {
       console.error(error);
+      alert("Gagal menyimpan lore.");
     } finally {
       setLoading(false);
     }
@@ -30,7 +52,7 @@ export default function AddLoreModal({ isOpen, onClose, activeCampaignId }) {
             <div className="bg-grimoire-dark p-2 rounded">
               <Scroll className="text-grimoire-gold w-5 h-5" />
             </div>
-            <h2 className="text-2xl font-serif uppercase">Add Lore Entry</h2>
+            <h2 className="text-2xl font-serif uppercase">{loreToEdit ? 'Edit Lore Entry' : 'Add Lore Entry'}</h2>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-grimoire-dark">
             <X className="w-6 h-6" />
@@ -73,7 +95,7 @@ export default function AddLoreModal({ isOpen, onClose, activeCampaignId }) {
           <div className="pt-4 flex justify-end gap-3 border-t border-parchment-dark">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-bold text-gray-500">Cancel</button>
             <button type="submit" disabled={loading} className="bg-grimoire-dark hover:bg-grimoire-light text-white font-bold py-2 px-6 rounded">
-              {loading ? 'Archiving...' : 'Save to Grimoire'}
+              {loading ? 'Saving...' : (loreToEdit ? 'Save Changes' : 'Save to Grimoire')}
             </button>
           </div>
         </form>

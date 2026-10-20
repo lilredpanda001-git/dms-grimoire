@@ -1,17 +1,32 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Search, Plus, Trash2, Map as MapIcon, Shield, ScrollText, Gem } from 'lucide-react';
+import { BookOpen, Search, Plus, Trash2, Map as MapIcon, Shield, ScrollText, Gem, Edit3, ChevronDown, ChevronUp } from 'lucide-react';
 import { ref, onValue } from 'firebase/database';
 import { db } from '../../../firebase';
 import { deleteLore } from '../../../controllers/loreController';
+import LoreFormModal from '../LoreFormModal'; // Sesuaikan path ini jika Anda menggunakan nama AddLoreModal
 
-export default function LoreView({ onOpenAddLore }) {
+// Tambahkan prop role='dm' agar Player tidak bisa edit/delete
+export default function LoreView({ activeCampaignId, role = 'dm' }) {
   const [lores, setLores] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('All');
   const [loading, setLoading] = useState(true);
 
+  // State untuk Expand/Collapse Card
+  const [expandedIds, setExpandedIds] = useState({});
+  
+  // State untuk Modal Edit/Add mandiri di dalam LoreView
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingLore, setEditingLore] = useState(null);
+
   useEffect(() => {
-    const loreRef = ref(db, 'campaign/active/lore');
+    if (!activeCampaignId) {
+      setLores([]);
+      setLoading(false);
+      return;
+    }
+
+    const loreRef = ref(db, `campaigns/${activeCampaignId}/lore`);
     const unsubLore = onValue(loreRef, (snapshot) => {
       if (snapshot.exists()) {
         const loreArray = Object.values(snapshot.val()).sort((a, b) => b.createdAt - a.createdAt);
@@ -22,21 +37,18 @@ export default function LoreView({ onOpenAddLore }) {
       setLoading(false);
     });
     return () => unsubLore();
-  }, []);
+  }, [activeCampaignId]);
 
-  // Ikon dinamis menggunakan Object Map (Aman dari error switch)
-const getCategoryIcon = (category) => {
-    if (category === 'Location') {
-      return <MapIcon className="w-4 h-4 text-blue-600" />;
-    } else if (category === 'Faction') {
-      return <Shield className="w-4 h-4 text-red-600" />;
-    } else if (category === 'History') {
-      return <ScrollText className="w-4 h-4 text-amber-700" />;
-    } else if (category === 'Item') {
-      return <Gem className="w-4 h-4 text-purple-600" />;
-    } else {
-      return <BookOpen className="w-4 h-4 text-gray-600" />;
-    }
+  const toggleExpand = (id) => {
+    setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const getCategoryIcon = (category) => {
+    if (category === 'Location') return <MapIcon className="w-4 h-4 text-blue-600" />;
+    if (category === 'Faction') return <Shield className="w-4 h-4 text-red-600" />;
+    if (category === 'History') return <ScrollText className="w-4 h-4 text-amber-700" />;
+    if (category === 'Item') return <Gem className="w-4 h-4 text-purple-600" />;
+    return <BookOpen className="w-4 h-4 text-gray-600" />;
   };
 
   const filteredLores = lores.filter(lore => 
@@ -70,36 +82,75 @@ const getCategoryIcon = (category) => {
             <option value="History">History</option>
             <option value="Item">Items</option>
           </select>
-          <button 
-            onClick={onOpenAddLore}
-            className="bg-grimoire-dark hover:bg-grimoire-light text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm font-bold whitespace-nowrap"
-          >
-            <Plus className="w-4 h-4 text-grimoire-gold" /> Add Lore
-          </button>
+          
+          {role === 'dm' && (
+            <button 
+              onClick={() => { setEditingLore(null); setIsModalOpen(true); }}
+              className="bg-grimoire-dark hover:bg-grimoire-light text-white px-4 py-2 rounded-md flex items-center gap-2 text-sm font-bold whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4 text-grimoire-gold" /> Add Lore
+            </button>
+          )}
         </div>
       </div>
 
       {loading ? (
         <div className="flex justify-center py-20"><p className="text-gray-400 animate-pulse">Dusting off the tomes...</p></div>
       ) : filteredLores.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {filteredLores.map(lore => (
-            <div key={lore.id} className="bg-white border border-parchment-dark rounded-xl p-6 shadow-sm relative group hover:border-grimoire-gold transition-colors flex flex-col h-full">
-              <button 
-                onClick={() => { if(window.confirm('Burn this page from the grimoire?')) deleteLore(lore.id) }}
-                className="absolute top-4 right-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
+          {filteredLores.map(lore => {
+            const isExpanded = expandedIds[lore.id];
+            const isLongText = lore.content.length > 150 || lore.content.split('\n').length > 4;
 
-              <div className="flex items-center gap-2 mb-3">
-                {getCategoryIcon(lore.category)}
-                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{lore.category}</span>
+            return (
+              // TAMBAHKAN min-w-0 DI SINI UNTUK MENCEGAH KARTU MELEBAR
+              <div key={lore.id} className="bg-white border border-parchment-dark rounded-xl p-6 shadow-sm relative group hover:border-grimoire-gold transition-colors flex flex-col h-full min-w-0">
+                
+                {role === 'dm' && (
+                  <div className="absolute top-4 right-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity bg-white pl-2">
+                    <button 
+                      onClick={() => { setEditingLore(lore); setIsModalOpen(true); }}
+                      className="text-gray-300 hover:text-blue-500 transition-colors"
+                      title="Edit Lore"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => { if(window.confirm(`Hapus catatan "${lore.title}" dari arsip?`)) deleteLore(activeCampaignId, lore.id) }}
+                      className="text-gray-300 hover:text-red-500 transition-colors"
+                      title="Hapus Lore"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-2 mb-3">
+                  {getCategoryIcon(lore.category)}
+                  <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">{lore.category}</span>
+                </div>
+                
+                {/* TAMBAHKAN truncate atau break-words JIKA JUDUL TERLALU PANJANG */}
+                <h3 className="font-serif font-bold text-xl uppercase text-grimoire-dark mb-3 leading-tight pr-12 break-words">
+                  {lore.title}
+                </h3>
+                
+                {/* TAMBAHKAN break-words DI SINI UNTUK MEMAKSA TEKS TURUN KE BAWAH */}
+                <p className={`text-sm text-gray-600 whitespace-pre-wrap break-words leading-relaxed ${isExpanded ? '' : 'line-clamp-4'}`}>
+                  {lore.content}
+                </p>
+
+                {isLongText && (
+                  <button 
+                    onClick={() => toggleExpand(lore.id)}
+                    className="mt-4 text-xs font-bold text-grimoire-gold hover:text-grimoire-dark flex items-center gap-1 transition-colors w-fit"
+                  >
+                    {isExpanded ? <><ChevronUp className="w-3 h-3" /> Read Less</> : <><ChevronDown className="w-3 h-3" /> Read More</>}
+                  </button>
+                )}
               </div>
-              <h3 className="font-serif font-bold text-xl uppercase text-grimoire-dark mb-3 leading-tight pr-6">{lore.title}</h3>
-              <p className="text-sm text-gray-600 whitespace-pre-wrap flex-1 leading-relaxed">{lore.content}</p>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div className="bg-white border border-dashed border-gray-300 rounded-xl p-12 text-center flex flex-col items-center">
@@ -108,6 +159,14 @@ const getCategoryIcon = (category) => {
           <p className="text-sm text-gray-400 mb-6 max-w-md">Chronicle the world's history, document factions, and note down important locations to keep your campaign rich and immersive.</p>
         </div>
       )}
+
+      {/* RENDER MODAL DI DALAM LORE VIEW */}
+      <LoreFormModal 
+        isOpen={isModalOpen} 
+        onClose={() => { setIsModalOpen(false); setEditingLore(null); }} 
+        activeCampaignId={activeCampaignId}
+        editData={editingLore}
+      />
     </div>
   );
 }

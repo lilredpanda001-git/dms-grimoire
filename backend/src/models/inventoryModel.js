@@ -1,71 +1,42 @@
 /**
  * models/inventoryModel.js
  * ═══ LAYER 2: Model — Inventory Database Operations ═══
- *
- * Direct Firebase Realtime Database operations for the /inventory node.
- * Uses Firebase Client SDK (same as frontend).
- * No business logic — pure data access.
  */
-
 import { db, ref, get, set, push, update, remove } from "../config/firebase.js";
 
-const NODE = "inventory";
+// Fungsi pembuat path dinamis
+const getNode = (campaignId) => `campaigns/${campaignId}/inventory`;
 
-/**
- * Creates a new inventory item (loot).
- * @param {object} data — Item data
- * @returns {Promise<{ id: string, data: object }>}
- */
-export async function create(data) {
-	const newRef = push(ref(db, NODE));
-	const entry = {
-		...data,
-		createdAt: Date.now(),
-		updatedAt: Date.now(),
-	};
-	await set(newRef, entry);
-	return { id: newRef.key, data: entry };
+export async function create(campaignId, data) {
+    const newRef = push(ref(db, getNode(campaignId)));
+    const entry = {
+        ...data,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+    };
+    await set(newRef, entry);
+    return { id: newRef.key, data: entry };
 }
 
-/**
- * Retrieves all inventory items.
- * @returns {Promise<object>} — Map of { [id]: itemData }
- */
-export async function findAll() {
-	const snapshot = await get(ref(db, NODE));
-	return snapshot.val() || {};
+export async function findAll(campaignId) {
+    const snapshot = await get(ref(db, getNode(campaignId)));
+    return snapshot.val() || {};
 }
 
-/**
- * Retrieves a single inventory item by ID.
- * @param {string} id
- * @returns {Promise<object|null>}
- */
-export async function findById(id) {
-	const snapshot = await get(ref(db, `${NODE}/${id}`));
-	return snapshot.exists() ? { id, ...snapshot.val() } : null;
+export async function findById(campaignId, id) {
+    const snapshot = await get(ref(db, `${getNode(campaignId)}/${id}`));
+    return snapshot.exists() ? { id, ...snapshot.val() } : null;
 }
 
-/**
- * Updates an inventory item by ID (partial merge).
- * @param {string} id
- * @param {object} updates
- * @returns {Promise<void>}
- */
-export async function updateById(id, updates) {
-	await update(ref(db, `${NODE}/${id}`), {
-		...updates,
-		updatedAt: Date.now(),
-	});
+export async function updateById(campaignId, id, updates) {
+    await update(ref(db, `${getNode(campaignId)}/${id}`), {
+        ...updates,
+        updatedAt: Date.now(),
+    });
 }
 
-/**
- * Deletes an inventory item by ID.
- * @param {string} id
- * @returns {Promise<void>}
- */
-export async function removeById(id) {
-	await remove(ref(db, `${NODE}/${id}`));
+export async function removeById(campaignId, id) {
+    await remove(ref(db, `${getNode(campaignId)}/${id}`));
 }
 
 export default { create, findAll, findById, updateById, removeById };

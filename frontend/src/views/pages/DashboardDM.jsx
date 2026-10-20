@@ -26,6 +26,17 @@ export default function DashboardDM() {
   const [isChronicleModalOpen, setIsChronicleModalOpen] = useState(false);
   const [isCampaignModalOpen, setIsCampaignModalOpen] = useState(false);
   const [isAddLoreOpen, setIsAddLoreOpen] = useState(false);
+  const [loreToEdit, setLoreToEdit] = useState(null);
+
+  const handleOpenAddLore = () => {
+    setLoreToEdit(null); // Reset ke null agar modal jadi mode ADD
+    setIsAddLoreOpen(true);
+  };
+
+  const handleOpenEditLore = (lore) => {
+    setLoreToEdit(lore); // Isi dengan item lore yang dipilih agar modal jadi mode EDIT
+    setIsAddLoreOpen(true);
+  };
 
   return (
     <div className="flex h-screen bg-parchment text-grimoire-dark overflow-hidden font-sans relative">
@@ -75,13 +86,7 @@ export default function DashboardDM() {
             <NotesView activeCampaignId={activeCampaignId} />
           )}
 
-          {['schedule'].includes(activeView) && (
-            <div className="flex flex-col items-center justify-center h-full text-gray-400 mt-20">
-              <h2 className="font-serif text-3xl uppercase mb-2">Under Construction</h2>
-              <p className="text-sm">The magic for <span className="font-bold text-grimoire-gold uppercase">{activeView}</span> is still being scribed.</p>
-            </div>
-          )}
-
+          
         </main>
       </div>
 
@@ -91,29 +96,31 @@ export default function DashboardDM() {
         isOpen={isScribeOpen} 
         onClose={() => setIsScribeOpen(false)} 
         campaignName="DM's Grimoire" 
+        activeCampaignId={activeCampaignId} 
       />
       
       <AddCharacterModal 
         isOpen={isAddCharacterOpen} 
         onClose={() => setIsAddCharacterOpen(false)} 
-        activeCampaignId={activeCampaignId} // DIKIRIM KE SINI
+        activeCampaignId={activeCampaignId} 
       />
       
       <AddChronicleModal 
         isOpen={isChronicleModalOpen} 
         onClose={() => setIsChronicleModalOpen(false)} 
-        activeCampaignId={activeCampaignId} // DIKIRIM KE SINI
+        activeCampaignId={activeCampaignId} 
       />
       
       <EditCampaignModal 
         isOpen={isCampaignModalOpen} 
         onClose={() => setIsCampaignModalOpen(false)} 
-        activeCampaignId={activeCampaignId} // DIKIRIM KE SINI
+        activeCampaignId={activeCampaignId} 
       />
 
       <AddLoreModal 
         isOpen={isAddLoreOpen} 
-        onClose={() => setIsAddLoreOpen(false)} 
+        onClose={() => setIsAddLoreOpen(false)}
+        activeCampaignId={activeCampaignId} 
       />
 
     </div>

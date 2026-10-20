@@ -1,12 +1,10 @@
 import { db } from '../firebase';
-import { ref, set, remove, push } from 'firebase/database';
-import { update } from 'firebase/database';
+import { ref, set, remove, push, update } from 'firebase/database';
 
-const npcPath = 'campaign/active/npcs';
-
-export const addNpc = async (npcData) => {
+export const addNpc = async (campaignId, npcData) => {
+  if (!campaignId) throw new Error("Pilih kampanye terlebih dahulu.");
   try {
-    const npcRef = ref(db, npcPath);
+    const npcRef = ref(db, `campaigns/${campaignId}/npcs`);
     const newNpcRef = push(npcRef); 
     await set(newNpcRef, {
       id: newNpcRef.key,
@@ -22,23 +20,24 @@ export const addNpc = async (npcData) => {
   }
 };
 
-export const updateNpc = async (id, updatedData) => {
+export const updateNpc = async (campaignId, id, updatedData) => {
+  if (!campaignId || !id) return;
   try {
-    const npcRef = ref(db, `campaign/active/npcs/${id}`);
+    const npcRef = ref(db, `campaigns/${campaignId}/npcs/${id}`);
     await update(npcRef, {
       ...updatedData,
       updatedAt: Date.now()
     });
-    console.log("NPC updated successfully");
   } catch (error) {
     console.error("Error updating NPC: ", error);
     throw error;
   }
 };
 
-export const deleteNpc = async (id) => {
+export const deleteNpc = async (campaignId, id) => {
+  if (!campaignId || !id) return;
   try {
-    const npcRef = ref(db, `${npcPath}/${id}`);
+    const npcRef = ref(db, `campaigns/${campaignId}/npcs/${id}`);
     await remove(npcRef);
   } catch (error) {
     throw new Error(`Gagal menghapus NPC: ${error.message}`);

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { PenTool, X, Sparkles, AlertCircle } from 'lucide-react';
 import { auth } from '../../firebase';
 
-export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "The Ashen Crown" }) {
+export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "Your Campaign", activeCampaignId }) {
   const [selectedPreset, setSelectedPreset] = useState('');
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -10,15 +10,21 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "The
 
   if (!isOpen) return null;
 
+  // PRESET DIUBAH: Khusus untuk memancing AI membuat variasi NPC
   const presets = [
-    { id: 'npc', label: 'Mysterious NPC' },
-    { id: 'twist', label: 'Story twist' },
-    { id: 'lore', label: 'Location lore' },
-    { id: 'item', label: 'Magic item' }
+    { id: 'merchant', label: 'Quirky Merchant' },
+    { id: 'villain', label: 'Menacing Villain' },
+    { id: 'quest_giver', label: 'Desperate Quest Giver' },
+    { id: 'tavern_patron', label: 'Gossiping Patron' }
   ];
 
   const handleGenerate = async () => {
     if (!selectedPreset && !prompt) return;
+    
+    if (!activeCampaignId) {
+      setError("Pilih campaign terlebih dahulu sebelum memanggil AI.");
+      return;
+    }
     
     setIsGenerating(true);
     setError('');
@@ -31,21 +37,21 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "The
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const res = await fetch(`${backendUrl}/api/npcs/generate`, {
+      const res = await fetch(`${backendUrl}/api/campaigns/${activeCampaignId}/npcs/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           preset: selectedPreset || undefined,
           prompt: prompt || undefined,
+          campaignId: activeCampaignId
         }),
       });
 
       const envelope = await res.json();
       if (!res.ok || !envelope.ok) {
-        throw new Error(envelope.error?.message || 'Gagal menghasilkan konten dari Arcane Scribe');
+        throw new Error(envelope.error?.message || 'Gagal menghasilkan NPC dari Arcane Scribe');
       }
 
-      // Reset form dan tutup modal setelah sukses
       setPrompt('');
       setSelectedPreset('');
       setError('');
@@ -61,7 +67,6 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "The
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div className="bg-parchment-light w-full max-w-2xl rounded-lg shadow-2xl relative text-grimoire-dark overflow-hidden">
         
-        {/* Tombol Close */}
         <button 
           onClick={onClose}
           className="absolute top-6 right-6 p-2 text-gray-400 hover:text-grimoire-dark border border-transparent hover:border-gray-300 rounded transition"
@@ -70,21 +75,19 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "The
         </button>
 
         <div className="p-10 flex flex-col items-center">
-          {/* Ikon Header */}
           <div className="w-14 h-14 bg-parchment-dark rounded-full flex items-center justify-center mb-6">
             <PenTool className="w-6 h-6 text-grimoire-dark" />
           </div>
 
-          {/* Judul */}
           <div className="text-center mb-8">
             <p className="text-grimoire-gold text-xs font-bold tracking-widest uppercase mb-2">Arcane Scribe</p>
-            <h2 className="text-3xl font-serif mb-3 uppercase tracking-wide">What Shall We Create?</h2>
+            {/* TEKS DIUBAH AGAR FOKUS KE NPC */}
+            <h2 className="text-3xl font-serif mb-3 uppercase tracking-wide">Who Shall We Conjure?</h2>
             <p className="text-gray-600 text-sm">
-              Generate something tied to {campaignName}, or add your own campaign entry.
+              Generate a new character for {campaignName}, or describe them below.
             </p>
           </div>
 
-          {/* Grid Preset */}
           <div className="grid grid-cols-2 gap-4 w-full mb-4">
             {presets.map((preset) => (
               <button
@@ -102,11 +105,11 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "The
             ))}
           </div>
 
-          {/* Custom Prompt Input */}
+          {/* TEKS PLACEHOLDER DIUBAH */}
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe an idea, secret, or encounter..."
+            placeholder="Describe their appearance, quirks, secret motives..."
             className="w-full h-32 p-4 bg-white border border-parchment-dark rounded-lg resize-none focus:outline-none focus:border-grimoire-gold focus:ring-1 focus:ring-grimoire-gold mb-6 text-sm"
           />
 
@@ -117,14 +120,13 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "The
             </div>
           )}
 
-          {/* Action Button */}
           <button 
             onClick={handleGenerate}
             disabled={isGenerating || (!selectedPreset && !prompt)}
             className="w-full bg-grimoire-dark hover:bg-grimoire-light text-white font-bold py-3.5 px-4 rounded transition duration-200 flex items-center justify-center gap-2 disabled:opacity-50"
           >
             <Sparkles className="w-5 h-5" />
-            {isGenerating ? 'Conjuring magic...' : 'Generate with Arcane Scribe'}
+            {isGenerating ? 'Conjuring character...' : 'Generate NPC with Scribe'}
           </button>
         </div>
       </div>

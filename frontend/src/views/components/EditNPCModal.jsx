@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { updateNpc } from "../../controllers/npcController";
 
-export default function EditNPCModal({ isOpen, onClose, npcData }) {
+export default function EditNPCModal({ isOpen, onClose, npcData, activeCampaignId }) {
   const [formData, setFormData] = useState({
     name: '',
     role: '',
@@ -34,9 +34,16 @@ export default function EditNPCModal({ isOpen, onClose, npcData }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // Validasi tambahan agar tidak error jika campaign belum terpilih
+    if (!activeCampaignId) {
+      alert("Pilih campaign terlebih dahulu!");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      await updateNpc(npcData.id, formData);
+      // KIRIM activeCampaignId KE CONTROLLER
+      await updateNpc(activeCampaignId, npcData.id, formData);
       onClose(); // Tutup modal setelah sukses
     } catch (error) {
       console.error("Error updating NPC:", error);

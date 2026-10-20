@@ -1,28 +1,26 @@
 import { useState, useEffect } from 'react';
-import { Bell, Plus, ChevronDown, ChevronRight, ArrowRight, CheckSquare, Square, MapPin, Trash2 } from 'lucide-react';
+import { Plus, ChevronDown, ChevronRight, ArrowRight, CheckSquare, Square, MapPin, Trash2, Key, Copy } from 'lucide-react';
 import { ref, onValue } from 'firebase/database';
-import { db } from '../../../firebase'; 
+import { db, auth } from '../../../firebase'; 
+import { useNavigate } from 'react-router-dom';
 import PartyCard from '../PartyCard';
-// SEMUA IMPORT CONTROLLER DIGABUNG JADI SATU DI SINI
 import { createNewCampaign, updateCampaignInfo, addChapterToCampaign } from '../../../controllers/campaignController';
 import { addPrepItem, togglePrepItem, deletePrepItem } from '../../../controllers/prepController';
 import { deleteChronicle } from '../../../controllers/chronicleController';
 
-export default function Overview({ activeCampaignId, setActiveCampaignId, setActiveView, onOpenAddCharacter, onOpenChronicleModal, onOpenCampaignModal }) {
-  // State untuk Dropdown List
+export default function Overview({ activeCampaignId, setActiveCampaignId, setActiveView, onOpenAddCharacter, onOpenChronicleModal, onOpenCampaignModal, role = 'dm' }) {
+  const navigate = useNavigate();
   const [campaignList, setCampaignList] = useState([]);
   const [chapterList, setChapterList] = useState([]);
   const [showCampaignMenu, setShowCampaignMenu] = useState(false);
   const [showChapterMenu, setShowChapterMenu] = useState(false);
 
-  // State untuk Data Firebase dari Campaign yang Aktif
   const [partyMembers, setPartyMembers] = useState({});
   const [prepItems, setPrepItems] = useState([]);
   const [chronicles, setChronicles] = useState([]);
   const [newPrep, setNewPrep] = useState('');
   const [loadingParty, setLoadingParty] = useState(true);
 
-  // Nilai Default
   const [campaignData, setCampaignData] = useState({
     title: 'Untitled Campaign',
     chapterTitle: 'Untitled Chapter',
@@ -31,26 +29,52 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
     description: 'Klik Create New Campaign untuk memulai.',
     progress: 0,
     currentLocation: 'Unknown',
-    locationDesc: ''
+    locationDesc: '',
+    inviteCode: '' 
   });
 
-  // 1. Ambil daftar semua kampanye untuk Dropdown Topbar
+  
+
+  // 1. Ambil daftar kampanye
   useEffect(() => {
+    const user = auth.currentUser;
+    if (!user) {
+      setCampaignList([]);
+      
+      setLoadingParty(false);
+      return;
+    }
+
     const campaignsRef = ref(db, 'campaigns');
     const unsub = onValue(campaignsRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const list = Object.keys(data).map(key => ({
-          id: key,
-          title: data[key].info?.title || 'Untitled Campaign',
-          chapterTitle: data[key].info?.chapterTitle || 'Untitled Chapter'
-        }));
+        const list = [];
+
+        Object.keys(data).forEach(key => {
+          const camp = data[key];
+          if (camp.members && camp.members[user.uid]) {
+            list.push({
+              id: key,
+              title: camp.info?.title || 'Untitled Campaign',
+              chapterTitle: camp.info?.chapterTitle || 'Untitled Chapter',
+              role: camp.members[user.uid]
+            });
+          }
+        });
+
         setCampaignList(list);
 
-        // Auto-select kampanye pertama
+        // PERBAIKAN: Cek apakah ada titipan ID dari perpindahan dashboard
         if (!activeCampaignId && list.length > 0) {
-          setActiveCampaignId(list[0].id);
+          const savedId = localStorage.getItem('targetCampaignId');
+          if (savedId && list.find(c => c.id === savedId)) {
+            setActiveCampaignId(savedId);
+          } else {
+            setActiveCampaignId(list[0].id);
+          }
         }
+
       } else {
         setCampaignList([]);
         setActiveCampaignId(null);
@@ -59,7 +83,7 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
     return () => unsub();
   }, [activeCampaignId, setActiveCampaignId]);
 
-  // 2. Ambil isi data dari Kampanye yang dipilih
+  // 2. Ambil isi data dari Kampanye
   useEffect(() => {
     if (!activeCampaignId) {
       setLoadingParty(false);
@@ -101,7 +125,7 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
 
     return () => { unsubInfo(); unsubParty(); unsubPrep(); unsubChron(); unsubChap(); };
   }, [activeCampaignId]);
-
+  
   const handleCreateCampaign = async () => {
     const title = prompt("Masukkan nama Campaign Baru:");
     if (title) {
@@ -116,7 +140,18 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
     const title = prompt("Masukkan nama Chapter / Sesi Baru (misal: Sesi 12 - Sarang Naga):");
     if (title) {
       await addChapterToCampaign(activeCampaignId, title);
-      await updateCampaignInfo(activeCampaignId, { chapterTitle: title });
+      // PERBAIKAN: Reset chapterDescription saat membuat chapter baru
+      await updateCampaignInfo(activeCampaignId, { 
+        chapterTitle: title,
+        chapterDescription: '' 
+      });
+    }
+  };
+
+  const copyInviteCode = () => {
+    if (campaignData.inviteCode) {
+      navigator.clipboard.writeText(campaignData.inviteCode);
+      alert(`Kode Invite [ ${campaignData.inviteCode} ] berhasil disalin! Berikan kepada pemain untuk Join Campaign.`);
     }
   };
 
@@ -144,18 +179,32 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
                 {campaignList.map((camp) => (
                   <div 
                     key={camp.id}
-                    onClick={() => { setActiveCampaignId(camp.id); setShowCampaignMenu(false); }}
+                    onClick={() => { 
+                      // 1. Simpan ID ke memori browser
+                      localStorage.setItem('targetCampaignId', camp.id);
+                      setActiveCampaignId(camp.id); 
+                      setShowCampaignMenu(false); 
+
+                      // 2. Cek apakah harus pindah Dashboard (DM <-> Player)
+                      if (camp.role === 'player' && role === 'dm') {
+                        navigate('/dashboard/player');
+                      } else if (camp.role === 'dm' && role === 'player') {
+                        navigate('/dashboard/dm');
+                      }
+                    }}
                     className={`px-4 py-3 text-sm font-serif cursor-pointer border-b border-parchment-dark transition-colors ${activeCampaignId === camp.id ? 'bg-parchment font-bold text-grimoire-dark' : 'hover:bg-gray-50 text-gray-600'}`}
                   >
                     {camp.title}
                   </div>
                 ))}
-                <div 
-                  onClick={handleCreateCampaign}
-                  className="px-4 py-3 text-xs font-bold text-grimoire-gold hover:text-white hover:bg-grimoire-dark cursor-pointer uppercase flex items-center gap-2 transition-colors bg-gray-50"
-                >
-                  <Plus className="w-3 h-3" /> Create New Campaign
-                </div>
+                {role === 'dm' && (
+                  <div 
+                    onClick={handleCreateCampaign}
+                    className="px-4 py-3 text-xs font-bold text-grimoire-gold hover:text-white hover:bg-grimoire-dark cursor-pointer uppercase flex items-center gap-2 transition-colors bg-gray-50"
+                  >
+                    <Plus className="w-3 h-3" /> Create New Campaign
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -166,22 +215,26 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
           <div className="relative">
             <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase mb-1">Current Chapter</p>
             <div 
-              onClick={() => { setShowChapterMenu(!showChapterMenu); setShowCampaignMenu(false); }}
-              className="flex items-center gap-2 text-grimoire-dark hover:text-grimoire-gold transition-colors cursor-pointer"
+              onClick={() => { if(role === 'dm') { setShowChapterMenu(!showChapterMenu); setShowCampaignMenu(false); } }}
+              className={`flex items-center gap-2 text-grimoire-dark transition-colors ${role === 'dm' ? 'hover:text-grimoire-gold cursor-pointer' : ''}`}
             >
               <span className="font-serif text-lg uppercase tracking-wide truncate max-w-xs">
                 {activeCampaignId ? campaignData.chapterTitle : 'Untitled Chapter'}
               </span>
-              <ChevronDown className={`w-4 h-4 transition-transform ${showChapterMenu ? 'rotate-180' : ''}`} />
+              {role === 'dm' && <ChevronDown className={`w-4 h-4 transition-transform ${showChapterMenu ? 'rotate-180' : ''}`} />}
             </div>
 
-            {showChapterMenu && (
+            {showChapterMenu && role === 'dm' && (
               <div className="absolute top-full left-0 mt-2 w-56 bg-white border border-parchment-dark rounded-md shadow-xl z-50 animate-fade-in overflow-hidden max-h-60 overflow-y-auto">
                 {chapterList.map((chap, idx) => (
                   <div 
                     key={idx}
                     onClick={() => {
-                      updateCampaignInfo(activeCampaignId, { chapterTitle: chap.title });
+                      // PERBAIKAN UTAMA: Update title DAN description ke info utama
+                      updateCampaignInfo(activeCampaignId, { 
+                        chapterTitle: chap.title,
+                        chapterDescription: chap.description || '' 
+                      });
                       setShowChapterMenu(false);
                     }}
                     className="px-4 py-2 text-sm font-serif hover:bg-parchment cursor-pointer border-b border-parchment-dark last:border-0"
@@ -195,22 +248,35 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
         </div>
 
         {/* Actions & Status */}
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center gap-4">
           {activeCampaignId && (
             <div className="flex items-center gap-2 px-3 py-1 bg-white border border-parchment-dark rounded-full shadow-sm">
               <div className={`w-2.5 h-2.5 rounded-full animate-pulse ${campaignData.status === 'Active' ? 'bg-green-500' : 'bg-amber-500'}`}></div>
               <span className="text-xs font-bold text-gray-600 uppercase tracking-wider">{campaignData.status}</span>
             </div>
           )}
+
+          {role === 'dm' && activeCampaignId && campaignData.inviteCode && (
+            <button 
+              onClick={copyInviteCode}
+              title="Salin Kode Invite"
+              className="flex items-center gap-2 px-3 py-1.5 bg-white border border-parchment-dark hover:border-grimoire-gold hover:text-grimoire-dark rounded shadow-sm transition-colors text-xs font-bold text-gray-600 uppercase tracking-wider"
+            >
+              <Key className="w-3.5 h-3.5 text-grimoire-gold" />
+              Code: <span className="text-grimoire-dark">{campaignData.inviteCode}</span>
+              <Copy className="w-3.5 h-3.5 ml-1 opacity-40 hover:opacity-100" />
+            </button>
+          )}
           
-          {/* Tombol Add Chapter */}
-          <button 
-            onClick={handleAddChapter}
-            disabled={!activeCampaignId}
-            className="bg-grimoire-dark hover:bg-grimoire-light text-white text-sm font-bold uppercase tracking-wider py-2.5 px-5 rounded flex items-center gap-2 shadow-md disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4" /> Add Chapter
-          </button>
+          {role === 'dm' && (
+            <button 
+              onClick={handleAddChapter}
+              disabled={!activeCampaignId}
+              className="bg-grimoire-dark hover:bg-grimoire-light text-white text-sm font-bold uppercase tracking-wider py-1.5 px-4 rounded flex items-center gap-2 shadow-md disabled:opacity-50"
+            >
+              <Plus className="w-4 h-4" /> Add Chapter
+            </button>
+          )}
         </div>
       </div>
                 
@@ -219,29 +285,29 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
         <p className="text-xs font-bold text-gray-500 tracking-widest uppercase mb-2">FRIDAY, 16 FROSTWANE</p>
         <div className="flex justify-between items-end">
           <div>
-            <h2 className="font-serif text-4xl text-grimoire-dark uppercase mb-1">Good Evening, Dungeon Master</h2>
+            <h2 className="font-serif text-4xl text-grimoire-dark uppercase mb-1">
+              {role === 'dm' ? 'Good Evening, Dungeon Master' : 'Welcome to the Campaign'}
+            </h2>
             <p className="text-gray-600">The table is set. Here's what awaits your party tonight.</p>
           </div>
-          <button 
-            onClick={onOpenCampaignModal}
-            disabled={!activeCampaignId}
-            className="text-sm font-bold text-gray-500 hover:text-grimoire-dark border border-gray-300 rounded px-4 py-2 disabled:opacity-50"
-          >
-            Edit Campaign
-          </button>
+          {role === 'dm' && (
+            <button 
+              onClick={onOpenCampaignModal}
+              disabled={!activeCampaignId}
+              className="text-sm font-bold text-gray-500 hover:text-grimoire-dark border border-gray-300 rounded px-4 py-2 disabled:opacity-50"
+            >
+              Edit Campaign
+            </button>
+          )}
         </div>
       </div>
 
       {/* Hero Banner */}
-      {/* Container utama kini menggunakan flex dan p-10 agar otomatis melebar menyesuaikan isi */}
       <div className="relative rounded-2xl overflow-hidden mb-12 shadow-lg group bg-gray-900 min-h-[22rem] flex flex-col justify-center p-8 md:p-10">
-        
         <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=2000&auto=format&fit=crop" alt="Hero" className="absolute inset-0 w-full h-full object-cover object-center opacity-70" />
         <div className="absolute inset-0 bg-gradient-to-r from-gray-950 via-gray-900/80 to-transparent"></div>
         
-        {/* Konten menggunakan relative z-10 agar mendorong tinggi container */}
         <div className="relative z-10 flex flex-col justify-center max-w-3xl w-full">
-          {/* Campaign Section */}
           <div className="mb-6">
             <p className="text-grimoire-gold text-[10px] font-bold tracking-widest uppercase mb-3">CURRENT CAMPAIGN ({campaignData.system})</p>
             <h1 className="text-4xl md:text-5xl font-serif text-white uppercase leading-tight mb-2">{campaignData.title}</h1>
@@ -250,7 +316,6 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
             </p>
           </div>
 
-          {/* Current Chapter Section */}
           <div className="bg-black/40 border border-gray-700/50 rounded-xl p-5 backdrop-blur-sm mb-6 inline-block w-fit min-w-[20rem] max-w-xl shadow-inner">
             <p className="text-grimoire-gold text-[10px] font-bold tracking-widest uppercase mb-1">CURRENT CHAPTER</p>
             <h3 className="font-serif text-xl md:text-2xl text-white uppercase mb-2">{campaignData.chapterTitle}</h3>
@@ -260,9 +325,8 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
           </div>
           
           <div className="flex gap-4">
-            {/* Tombol Continue memanggil setActiveView('notes') */}
             <button 
-              onClick={() => setActiveView('notes')}
+              onClick={() => setActiveView(role === 'dm' ? 'notes' : 'lore')}
               className="bg-parchment hover:bg-white text-grimoire-dark font-bold py-2.5 px-6 rounded transition-colors flex items-center gap-2 text-sm shadow-md"
             >
               Continue session <ArrowRight className="w-4 h-4" />
@@ -270,7 +334,6 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div className="hidden md:block absolute bottom-6 right-6 bg-gray-900/80 backdrop-blur border border-gray-700 rounded-xl p-5 w-64 shadow-xl z-10">
           <div className="flex justify-between items-end mb-2">
             <span className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">Campaign Progress</span>
@@ -289,7 +352,7 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
           onClick={onOpenAddCharacter}
           className="text-sm text-gray-500 hover:text-grimoire-dark flex items-center gap-1 transition-colors"
         >
-          Manage party <ChevronRight className="w-4 h-4" />
+          {role === 'dm' ? 'Manage party' : 'Add character'} <ChevronRight className="w-4 h-4" />
         </button>
       </div>
       
@@ -322,12 +385,14 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
               <p className="text-xs text-grimoire-gold font-bold tracking-widest uppercase mb-1">Campaign Chronicle</p>
               <h3 className="font-serif text-2xl uppercase">Recent Story</h3>
             </div>
-            <button 
-              onClick={onOpenChronicleModal}
-              className="px-4 h-10 rounded border border-parchment-dark flex items-center justify-center hover:border-grimoire-gold hover:text-grimoire-gold transition-colors text-sm font-bold uppercase tracking-wider"
-            >
-              + New Entry
-            </button>
+            {role === 'dm' && (
+              <button 
+                onClick={onOpenChronicleModal}
+                className="px-4 h-10 rounded border border-parchment-dark flex items-center justify-center hover:border-grimoire-gold hover:text-grimoire-gold transition-colors text-sm font-bold uppercase tracking-wider"
+              >
+                + New Entry
+              </button>
+            )}
           </div>
 
           <div className="relative border-l border-parchment-dark ml-3 space-y-8 pb-4">
@@ -340,12 +405,14 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
                     <span className="text-xs text-gray-500">Session {entry.sessionNumber} · {new Date(entry.createdAt).toLocaleDateString()}</span>
                     {index === 0 && <span className="text-[10px] bg-grimoire-dark text-white px-2 py-0.5 rounded font-medium">LATEST</span>}
                   </div>
-                  <button 
-                    onClick={() => { if(window.confirm('Hapus cerita ini?')) deleteChronicle(activeCampaignId, entry.id) }}
-                    className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {role === 'dm' && (
+                    <button 
+                      onClick={() => { if(window.confirm('Hapus cerita ini?')) deleteChronicle(activeCampaignId, entry.id) }}
+                      className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
                 
                 <h4 className="font-serif text-lg font-bold uppercase mb-2 text-grimoire-dark">{entry.title}</h4>
@@ -372,13 +439,15 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
             <div className="space-y-3 mb-6 max-h-48 overflow-y-auto pr-2">
               {prepItems.length > 0 ? prepItems.map((item) => (
                 <div key={item.id} className="flex items-start justify-between group">
-                  <label className="flex items-start gap-3 cursor-pointer flex-1">
-                    <input 
-                      type="checkbox" 
-                      className="hidden" 
-                      checked={item.isCompleted} 
-                      onChange={() => togglePrepItem(activeCampaignId, item.id, item.isCompleted)}
-                    />
+                  <label className={`flex items-start gap-3 flex-1 ${role === 'dm' ? 'cursor-pointer' : 'cursor-default'}`}>
+                    {role === 'dm' && (
+                      <input 
+                        type="checkbox" 
+                        className="hidden" 
+                        checked={item.isCompleted} 
+                        onChange={() => togglePrepItem(activeCampaignId, item.id, item.isCompleted)}
+                      />
+                    )}
                     {item.isCompleted ? (
                       <CheckSquare className="w-5 h-5 text-grimoire-gold mt-0.5 shrink-0" />
                     ) : (
@@ -388,44 +457,48 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
                       {item.text}
                     </span>
                   </label>
-                  <button 
-                    onClick={() => deletePrepItem(activeCampaignId, item.id)}
-                    className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  {role === 'dm' && (
+                    <button 
+                      onClick={() => deletePrepItem(activeCampaignId, item.id)}
+                      className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  )}
                 </div>
               )) : (
                 <p className="text-sm text-gray-400 italic">Belum ada persiapan untuk sesi ini.</p>
               )}
             </div>
 
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                if(newPrep.trim() && activeCampaignId) {
-                  addPrepItem(activeCampaignId, newPrep);
-                  setNewPrep('');
-                }
-              }}
-              className="flex gap-2 mb-4"
-            >
-              <input 
-                type="text" 
-                value={newPrep}
-                onChange={(e) => setNewPrep(e.target.value)}
-                placeholder="Tambah catatan prep..." 
-                className="flex-1 px-3 py-2 text-sm border border-parchment-dark rounded focus:outline-none focus:border-grimoire-gold bg-parchment-light"
-              />
-              <button type="submit" className="bg-grimoire-dark hover:bg-grimoire-light text-white p-2 rounded transition-colors">
-                <Plus className="w-4 h-4" />
-              </button>
-            </form>
+            {role === 'dm' && (
+              <form 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if(newPrep.trim() && activeCampaignId) {
+                    addPrepItem(activeCampaignId, newPrep);
+                    setNewPrep('');
+                  }
+                }}
+                className="flex gap-2 mb-4"
+              >
+                <input 
+                  type="text" 
+                  value={newPrep}
+                  onChange={(e) => setNewPrep(e.target.value)}
+                  placeholder="Tambah catatan prep..." 
+                  className="flex-1 px-3 py-2 text-sm border border-parchment-dark rounded focus:outline-none focus:border-grimoire-gold bg-parchment-light"
+                />
+                <button type="submit" className="bg-grimoire-dark hover:bg-grimoire-light text-white p-2 rounded transition-colors">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </form>
+            )}
           </div>
 
           <div 
-            onClick={onOpenCampaignModal}
-            className="bg-white border border-parchment-dark rounded-xl p-5 flex items-center justify-between hover:border-grimoire-gold cursor-pointer transition-colors"
+            onClick={() => role === 'dm' && onOpenCampaignModal()}
+            className={`bg-white border border-parchment-dark rounded-xl p-5 flex items-center justify-between transition-colors ${role === 'dm' ? 'hover:border-grimoire-gold cursor-pointer' : ''}`}
           >
             <div className="flex items-center gap-4">
               <div className="w-10 h-10 bg-parchment rounded-full flex items-center justify-center">
@@ -437,7 +510,7 @@ export default function Overview({ activeCampaignId, setActiveCampaignId, setAct
                 <p className="text-xs text-gray-500">{campaignData.locationDesc}</p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-gray-400" />
+            {role === 'dm' && <ChevronRight className="w-5 h-5 text-gray-400" />}
           </div>
         </div>
       </div>
