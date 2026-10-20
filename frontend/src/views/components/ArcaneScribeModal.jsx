@@ -10,7 +10,6 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "You
 
   if (!isOpen) return null;
 
-  // PRESET DIUBAH: Khusus untuk memancing AI membuat variasi NPC
   const presets = [
     { id: 'merchant', label: 'Quirky Merchant' },
     { id: 'villain', label: 'Menacing Villain' },
@@ -30,7 +29,11 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "You
     setError('');
 
     try {
-      const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+      // Mengambil URL backend dari Environment Render, fallback ke localhost untuk dev
+      const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
+      // Mencegah double slash (//) jika VITE_BACKEND_URL diakhiri tanda '/'
+      const backendUrl = rawBackendUrl.replace(/\/$/, '');
+      
       const token = await auth.currentUser?.getIdToken();
       const headers = { 'Content-Type': 'application/json' };
       if (token) {
@@ -81,7 +84,6 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "You
 
           <div className="text-center mb-8">
             <p className="text-grimoire-gold text-xs font-bold tracking-widest uppercase mb-2">Arcane Scribe</p>
-            {/* TEKS DIUBAH AGAR FOKUS KE NPC */}
             <h2 className="text-3xl font-serif mb-3 uppercase tracking-wide">Who Shall We Conjure?</h2>
             <p className="text-gray-600 text-sm">
               Generate a new character for {campaignName}, or describe them below.
@@ -105,7 +107,6 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "You
             ))}
           </div>
 
-          {/* TEKS PLACEHOLDER DIUBAH */}
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
