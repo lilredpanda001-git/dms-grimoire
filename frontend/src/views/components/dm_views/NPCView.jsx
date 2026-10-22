@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Users, Search, Sparkles, MapPin, Trash2, Edit2, Heart, Shield } from 'lucide-react';
+import { Users, Search, Sparkles, MapPin, Trash2, Edit2, Heart, Shield, Minus, Plus } from 'lucide-react';
 import { ref, onValue } from 'firebase/database';
 import { db } from '../../../firebase';
-import { deleteNpc } from '../../../controllers/npcController';
+import { deleteNpc, updateNpc } from '../../../controllers/npcController';
 import EditNPCModal from '../EditNPCModal';
 
 // TAMBAHKAN activeCampaignId SEBAGAI PROP
@@ -83,8 +83,27 @@ export default function NpcView({ activeCampaignId, onOpenScribe }) {
           {filteredNpcs.map((npc) => {
             const role = npc.role || npc.title || npc.class || npc.type || 'NPC';
             const description = npc.description || npc.lore || npc.personality || '';
+            const hpMax = Number(npc.hp?.max ?? npc.hpMax ?? npc.hp?.current ?? npc.hpCurrent ?? 10);
+            const hpCurrent = Number(npc.hp?.current ?? npc.hpCurrent ?? hpMax);
+            const hasHp = npc.hp !== undefined || npc.hpMax !== undefined || npc.hpCurrent !== undefined;
+            const hpPercentage = hpMax > 0 ? Math.max(0, Math.min(100, (hpCurrent / hpMax) * 100)) : 0;
+            const hpColor = hpPercentage < 30 ? 'bg-red-600' : hpPercentage < 60 ? 'bg-amber-500' : 'bg-green-700';
             const abilityScores = ['str', 'dex', 'con', 'int', 'wis', 'cha']
               .filter((stat) => npc.stats?.[stat] !== undefined);
+
+            const handleHPChange = async (amount) => {
+              const newHP = Math.max(0, Math.min(hpMax, hpCurrent + amount));
+              if (newHP === hpCurrent || !activeCampaignId) return;
+
+              try {
+                await updateNpc(activeCampaignId, npc.id, {
+                  hp: { ...npc.hp, current: newHP, max: hpMax }
+                });
+              } catch (error) {
+                console.error('Error updating NPC HP:', error);
+                alert('Failed to update NPC HP.');
+              }
+            };
 
             return (
             <div key={npc.id} className="bg-white border border-parchment-dark rounded-xl p-5 shadow-sm relative group hover:border-grimoire-gold transition-colors flex flex-col h-full">
@@ -129,17 +148,50 @@ export default function NpcView({ activeCampaignId, onOpenScribe }) {
                 <MapPin className="w-3 h-3" /> {npc.location || 'Unknown'}
               </div>
 
-              {(npc.hp || npc.armorClass !== undefined) && (
-                <div className="flex gap-5 mb-3 text-sm text-gray-600">
-                  {npc.hp && (
-                    <span className="flex items-center gap-1.5">
-                      <Heart className="w-4 h-4 text-red-500" />
-                      HP {npc.hp.current ?? npc.hp.max ?? 0}/{npc.hp.max ?? 0}
-                    </span>
+              {(hasHp || npc.armorClass !== undefined || npc.ac !== undefined) && (
+                <div className="mb-4 space-y-2 text-sm text-gray-600">
+                  {hasHp && (
+                    <div>
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="flex items-center gap-1.5">
+                          <Heart className="w-4 h-4 text-red-500" />
+                          HP <span className="font-semibold text-grimoire-dark">{hpCurrent}/{hpMax}</span>
+                          <span className={`h-2 w-2 rounded-full ${hpCurrent > 0 ? 'bg-green-500' : 'bg-red-500'}`} title={hpCurrent > 0 ? 'Alive' : 'Down'} />
+                        </span>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleHPChange(-1)}
+                            disabled={hpCurrent <= 0}
+                            aria-label={`Decrease ${npc.name}'s HP`}
+                            className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-red-50 hover:border-red-300 hover:text-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleHPChange(1)}
+                            disabled={hpCurrent >= hpMax}
+                            aria-label={`Increase ${npc.name}'s HP`}
+                            className="w-7 h-7 flex items-center justify-center border border-gray-300 rounded hover:bg-green-50 hover:border-green-300 hover:text-green-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="mt-1.5 w-full h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className={`h-full ${hpColor} transition-all duration-300`} style={{ width: `${hpPercentage}%` }} />
+                      </div>
+                    </div>
                   )}
                   {npc.armorClass !== undefined && (
                     <span className="flex items-center gap-1.5">
                       <Shield className="w-4 h-4 text-gray-600" /> AC {npc.armorClass}
+                    </span>
+                  )}
+                  {npc.armorClass === undefined && npc.ac !== undefined && (
+                    <span className="flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-gray-600" /> AC {npc.ac}
                     </span>
                   )}
                 </div>
