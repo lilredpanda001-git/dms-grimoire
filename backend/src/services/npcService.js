@@ -112,6 +112,7 @@ export async function generateNpcWithAi(campaignId, { prompt, type }) {
         aiMeta: {
             prompt,
             type,
+            source: mcpResponse.data?.source || "unknown",
             generatedAt: Date.now(),
             avatar: mcpResponse.data?.avatar || null,
             image: mcpResponse.data?.image || null,
@@ -151,6 +152,7 @@ export async function generateNpcWithAi(campaignId, { prompt, type }) {
     return {
         id: saved.id,
         npc: saved.data,
+        source: mcpResponse.data?.source || "unknown",
         mcpMeta: mcpResponse.meta,
     };
 }

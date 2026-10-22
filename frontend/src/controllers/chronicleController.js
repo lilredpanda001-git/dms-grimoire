@@ -1,7 +1,7 @@
 import { ref, push, set, remove } from 'firebase/database';
 import { db } from '../firebase';
 
-// Tambah cerita baru ke kampanye yang spesifik
+
 export const addChronicle = async (campaignId, chronicleData) => {
   if (!campaignId) return;
   try {
@@ -20,7 +20,7 @@ export const addChronicle = async (campaignId, chronicleData) => {
   }
 };
 
-// Hapus cerita dari kampanye yang spesifik
+
 export const deleteChronicle = async (campaignId, id) => {
   if (!campaignId || !id) return;
   try {

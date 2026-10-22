@@ -29,10 +29,11 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "You
     setError('');
 
     try {
-      // Mengambil URL backend dari Environment Render, fallback ke localhost untuk dev
+      
       const rawBackendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:4000';
-      // Mencegah double slash (//) jika VITE_BACKEND_URL diakhiri tanda '/'
-      const backendUrl = rawBackendUrl.replace(/\/$/, '');
+      const backendUrl = /^https?:\/\//i.test(rawBackendUrl)
+        ? rawBackendUrl.replace(/\/$/, '')
+        : `https://${rawBackendUrl.replace(/\/$/, '')}`;
       
       const token = await auth.currentUser?.getIdToken();
       const headers = { 'Content-Type': 'application/json' };
@@ -40,12 +41,18 @@ export default function ArcaneScribeModal({ isOpen, onClose, campaignName = "You
         headers['Authorization'] = `Bearer ${token}`;
       }
 
+      const selectedPresetLabel = presets.find((preset) => preset.id === selectedPreset)?.label;
+      const generationPrompt = prompt.trim() || (
+        selectedPresetLabel
+          ? `Create a ${selectedPresetLabel.toLowerCase()} for this campaign.`
+          : undefined
+      );
       const res = await fetch(`${backendUrl}/api/campaigns/${activeCampaignId}/npcs/generate`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
           preset: selectedPreset || undefined,
-          prompt: prompt || undefined,
+          prompt: generationPrompt,
           campaignId: activeCampaignId
         }),
       });

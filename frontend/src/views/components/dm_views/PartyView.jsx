@@ -116,13 +116,16 @@ export default function PartyView({ activeCampaignId }) {
                   <div className="text-center px-4">
                     <Heart className="w-5 h-5 text-red-500 mx-auto mb-1" />
                     <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">HP</p>
-                    <p className="font-serif text-xl font-bold text-grimoire-dark">{char.combat?.hpCurrent} <span className="text-sm text-gray-400">/ {char.combat?.hpMax}</span></p>
+                    <p className="font-serif text-xl font-bold text-grimoire-dark">
+                      {char.combat?.hpCurrent ?? char.hpCurrent ?? char.combat?.hpMax ?? char.hpMax ?? 10}
+                      <span className="text-sm text-gray-400"> / {char.combat?.hpMax ?? char.hpMax ?? 10}</span>
+                    </p>
                   </div>
                   <div className="w-px h-10 bg-parchment-dark"></div>
                   <div className="text-center px-4">
                     <Shield className="w-5 h-5 text-gray-600 mx-auto mb-1" />
                     <p className="text-[10px] font-bold text-gray-400 tracking-widest uppercase">AC</p>
-                    <p className="font-serif text-xl font-bold text-grimoire-dark">{char.combat?.ac || 10}</p>
+                    <p className="font-serif text-xl font-bold text-grimoire-dark">{char.combat?.ac ?? char.ac ?? 10}</p>
                   </div>
                   <div className="w-px h-10 bg-parchment-dark"></div>
                   <div className="text-center px-4">

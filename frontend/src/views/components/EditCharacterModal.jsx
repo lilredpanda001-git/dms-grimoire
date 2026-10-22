@@ -2,14 +2,21 @@ import { useState, useEffect } from 'react';
 import { X, UserCog } from 'lucide-react';
 import { updateFullCharacter } from '../../controllers/partyController';
 
-// TAMBAHKAN activeCampaignId di props
+
 export default function EditCharacterModal({ isOpen, onClose, characterData, activeCampaignId }) {
   const [formData, setFormData] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (characterData && isOpen) {
-      setFormData(JSON.parse(JSON.stringify(characterData)));
+      const character = JSON.parse(JSON.stringify(characterData));
+      character.combat = {
+        ...character.combat,
+        hpMax: character.combat?.hpMax ?? character.hpMax ?? 10,
+        hpCurrent: character.combat?.hpCurrent ?? character.hpCurrent ?? character.hpMax ?? 10,
+        ac: character.combat?.ac ?? character.ac ?? 10,
+      };
+      setFormData(character);
     }
   }, [characterData, isOpen]);
 

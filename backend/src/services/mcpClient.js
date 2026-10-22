@@ -90,7 +90,7 @@ export async function generateNpc({ prompt, type = "Mysterious NPC", partyContex
 
 /**
  * Checks MCP server health.
- * @returns {Promise<boolean>}
+ * @returns {Promise<{ reachable: boolean, llmConfigured: boolean, model?: string }>}
  */
 export async function checkHealth() {
 	try {
@@ -98,9 +98,16 @@ export async function checkHealth() {
 			method: "GET",
 			signal: AbortSignal.timeout(5000),
 		});
-		return response.ok;
+		if (!response.ok) return { reachable: false, llmConfigured: false };
+
+		const envelope = await response.json();
+		return {
+			reachable: envelope.ok === true,
+			llmConfigured: envelope.data?.llmConfigured === true,
+			model: envelope.data?.model,
+		};
 	} catch {
-		return false;
+		return { reachable: false, llmConfigured: false };
 	}
 }
 

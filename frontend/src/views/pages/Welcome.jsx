@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Book, ArrowLeft } from 'lucide-react';
-import { auth, db } from '../../firebase'; 
-import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { auth, db } from '../../firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, set } from 'firebase/database';
 import { Link } from 'react-router-dom';
+import { resendVerificationEmail } from '../../controllers/authController';
 
 export default function Welcome() {
   const [showModal, setShowModal] = useState(false);
@@ -15,6 +16,7 @@ export default function Welcome() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [canResendVerification, setCanResendVerification] = useState(false);
 
   // Efek Splash Screen
   useEffect(() => {
@@ -30,21 +32,19 @@ export default function Welcome() {
     setLoading(true);
     setError('');
     setMessage('');
+    setCanResendVerification(false);
 
     try {
-      // 1. Buat user di Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // 2. Kirim email verifikasi (Webmailer)
-      await sendEmailVerification(user);
-
-      // 3. Simpan data role pengguna ke Realtime Database
       await set(ref(db, 'users/' + user.uid), {
         email: user.email,
         role: selectedRole,
         createdAt: Date.now()
       });
+      setCanResendVerification(true);
+      await resendVerificationEmail(user);
 
       setMessage(`Berhasil mendaftar sebagai ${selectedRole.toUpperCase()}! Silakan cek kotak masuk email Anda untuk verifikasi.`);
       setEmail('');
@@ -53,6 +53,23 @@ export default function Welcome() {
     } catch (err) {
       // Menangani error dari Firebase (misal: email sudah terdaftar, password terlalu pendek)
       setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    setLoading(true);
+    setError('');
+    setMessage('');
+    try {
+      const sent = await resendVerificationEmail();
+      setMessage(sent
+        ? 'Email verifikasi telah dikirim ulang. Silakan periksa kotak masuk dan folder spam.'
+        : 'Email Anda sudah terverifikasi. Silakan masuk.');
+      setCanResendVerification(sent);
+    } catch (err) {
+      setError(err.message || 'Gagal mengirim ulang email verifikasi.');
     } finally {
       setLoading(false);
     }
@@ -139,6 +156,16 @@ export default function Welcome() {
 
               {error && <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm">{error}</div>}
               {message && <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4 text-sm">{message}</div>}
+              {canResendVerification && (
+                <button
+                  type="button"
+                  onClick={handleResendVerification}
+                  disabled={loading}
+                  className="mb-4 text-sm font-bold text-grimoire-dark underline disabled:opacity-50"
+                >
+                  Resend verification email
+                </button>
+              )}
 
               <form onSubmit={handleRegister} className="space-y-4">
                 <div>

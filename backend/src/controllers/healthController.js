@@ -12,14 +12,16 @@ import { sendSuccess } from "../io/response.js";
  * GET /health
  */
 export async function healthCheck(req, res) {
-	const mcpHealthy = await mcpClient.checkHealth();
+	const mcpHealth = await mcpClient.checkHealth();
 
 	sendSuccess(res, {
 		status: "ok",
 		service: "dms-grimoire-backend",
 		uptime: process.uptime(),
 		mcp: {
-			status: mcpHealthy ? "connected" : "unreachable",
+			status: mcpHealth.reachable ? "connected" : "unreachable",
+			llm: mcpHealth.llmConfigured ? "configured" : "not-configured",
+			model: mcpHealth.model || null,
 		},
 	});
 }

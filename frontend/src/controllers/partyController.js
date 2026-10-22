@@ -7,10 +7,22 @@ export const addCharacter = async (campaignId, characterData) => {
   try {
     const partyRef = ref(db, `campaigns/${campaignId}/party`);
     const newCharRef = push(partyRef);
-    
+    const hpMax = Number(characterData.combat?.hpMax ?? characterData.hpMax ?? 10);
+    const hpCurrent = Number(characterData.combat?.hpCurrent ?? characterData.hpCurrent ?? hpMax);
+    const ac = Number(characterData.combat?.ac ?? characterData.ac ?? 10);
+
     await set(newCharRef, {
       id: newCharRef.key,
       ...characterData,
+      combat: {
+        ...characterData.combat,
+        hpMax,
+        hpCurrent,
+        ac,
+        hpTemp: Number(characterData.combat?.hpTemp ?? 0),
+        initiativeModifier: Number(characterData.combat?.initiativeModifier ?? 0),
+        speed: Number(characterData.combat?.speed ?? 30),
+      },
       createdAt: Date.now(),
       updatedAt: Date.now()
     });

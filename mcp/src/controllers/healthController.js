@@ -17,6 +17,7 @@ export function healthCheck(_req, res) {
 		architecture: "micro-arch-layer",
 		model: config.llm.model,
 		llmEndpoint: config.llm.endpoint,
+		llmConfigured: Boolean(config.llm.apiKey),
 		tools: ["generate_npc"],
 		environment: config.server.nodeEnv,
 	});

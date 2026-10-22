@@ -6,7 +6,7 @@ export default function AddLoreModal({ isOpen, onClose, activeCampaignId, loreTo
   const [formData, setFormData] = useState({ title: '', category: 'Location', content: '' });
   const [loading, setLoading] = useState(false);
 
-  // Jika loreToEdit ada, isi form dengan data tersebut (Mode Edit)
+ 
   useEffect(() => {
     if (loreToEdit) {
       setFormData({

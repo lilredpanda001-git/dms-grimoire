@@ -42,14 +42,14 @@ export function extractJsonFromText(rawText) {
 }
 
 /**
- * Calls the Gemini LLM endpoint with system + user messages.
+ * Calls the configured OpenAI-compatible LLM endpoint with system + user messages.
  *
  * @param {object} params
  * @param {string} params.systemPrompt
  * @param {string} params.userPrompt
  * @param {object} [params.llmOverride] — Override config.llm partially
- * @returns {Promise<object|null>} Parsed JSON response or null
- * @throws {AppError} On timeout or parse failure (non-fatal, caught upstream)
+ * @returns {Promise<object>} Parsed JSON response
+ * @throws {AppError} On missing credentials, timeout, upstream failure, or parse failure
  */
 export async function callLlm({ systemPrompt, userPrompt, llmOverride = {} }) {
     const defaultGeminiEndpoint = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions";
@@ -60,6 +60,13 @@ export async function callLlm({ systemPrompt, userPrompt, llmOverride = {} }) {
         model: llmOverride.model || config.llm?.model || "gemini-3.5-flash-lite",
         timeoutMs: llmOverride.timeoutMs || config.llm?.timeoutMs || 30000,
     };
+
+    if (!llm.apiKey) {
+        throw new AppError(
+            ErrorCode.LLM_UNREACHABLE,
+            "LLM_API_KEY (or GEMINI_API_KEY) is required to generate AI content",
+        );
+    }
 
     const payload = {
         model: llm.model,
@@ -86,13 +93,11 @@ export async function callLlm({ systemPrompt, userPrompt, llmOverride = {} }) {
             signal: controller.signal,
         });
 
-        clearTimeout(timer);
-
         if (!response.ok) {
             const errText = await response.text().catch(() => "");
             throw new AppError(
                 ErrorCode.LLM_UNREACHABLE,
-                `Gemini API HTTP ${response.status}: ${errText.slice(0, 200)}`,
+                `LLM API HTTP ${response.status}: ${errText.slice(0, 200)}`,
             );
         }
 
@@ -102,7 +107,7 @@ export async function callLlm({ systemPrompt, userPrompt, llmOverride = {} }) {
         if (!content) {
             throw new AppError(
                 ErrorCode.LLM_PARSE_FAILED,
-                "Gemini response contained no message content",
+                "LLM response contained no message content",
             );
         }
 
@@ -110,21 +115,24 @@ export async function callLlm({ systemPrompt, userPrompt, llmOverride = {} }) {
         if (!parsed) {
             throw new AppError(
                 ErrorCode.LLM_PARSE_FAILED,
-                "Failed to parse valid JSON from Gemini response",
+                "Failed to parse valid JSON from LLM response",
             );
         }
 
         return parsed;
     } catch (err) {
-        clearTimeout(timer);
         if (err instanceof AppError) throw err;
         if (err.name === "AbortError") {
             throw new AppError(
                 ErrorCode.LLM_TIMEOUT,
-                `Gemini request timed out after ${llm.timeoutMs}ms`,
+                `LLM request timed out after ${llm.timeoutMs}ms`,
             );
         }
-        // Network error — return null so caller can fallback
-        return null;
+        throw new AppError(
+            ErrorCode.LLM_UNREACHABLE,
+            `Failed to connect to LLM endpoint: ${err.message}`,
+        );
+    } finally {
+        clearTimeout(timer);
     }
 }

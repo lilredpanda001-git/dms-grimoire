@@ -18,7 +18,16 @@ const ROOT = path.resolve(__dirname, "..", "..");
 dotenv.config({ path: path.join(ROOT, ".env") });
 
 const nodeEnv = process.env.NODE_ENV || "development";
-const mcpBaseUrl = env("MCP_BASE_URL", "http://localhost:3000");
+const rawMcpBaseUrl = env("MCP_BASE_URL", "http://localhost:3000");
+const mcpBaseUrl = /^https?:\/\//i.test(rawMcpBaseUrl)
+	? rawMcpBaseUrl.replace(/\/$/, "")
+	: `https://${rawMcpBaseUrl.replace(/\/$/, "")}`;
+const rawFrontendOrigin = env("FRONTEND_ORIGIN", "http://localhost:5173");
+const frontendOrigin = new URL(
+	/^https?:\/\//i.test(rawFrontendOrigin)
+		? rawFrontendOrigin
+		: `https://${rawFrontendOrigin}`,
+).origin;
 
 if (
 	nodeEnv === "production" &&
@@ -65,7 +74,7 @@ export const config = Object.freeze({
 	}),
 
 	cors: Object.freeze({
-		frontendOrigin: env("FRONTEND_ORIGIN", "http://localhost:5173"),
+		frontendOrigin,
 	}),
 
 	root: ROOT,

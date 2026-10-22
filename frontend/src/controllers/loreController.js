@@ -1,7 +1,7 @@
 import { ref, push, set, update, remove } from 'firebase/database';
 import { db } from '../firebase';
 
-// Tambah Lore
+
 export const addLore = async (campaignId, loreData) => {
   if (!campaignId) throw new Error("Pilih kampanye terlebih dahulu.");
   try {
@@ -21,7 +21,7 @@ export const addLore = async (campaignId, loreData) => {
   }
 };
 
-// Update Lore (FUNGSI BARU)
+
 export const updateLore = async (campaignId, id, loreData) => {
   if (!campaignId || !id) return;
   try {

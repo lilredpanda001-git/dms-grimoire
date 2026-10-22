@@ -45,7 +45,7 @@ function envInt(key, fallback = undefined) {
 export const config = Object.freeze({
 	llm: Object.freeze({
 		endpoint: llmEndpoint,
-		apiKey: env("LLM_API_KEY", ""),
+		apiKey: env("GEMINI_API_KEY", env("LLM_API_KEY", "")),
 		model: env("LLM_MODEL", "gemini-2.5-flash"),
 		timeoutMs: envInt("LLM_TIMEOUT_MS", 30000),
 	}),
