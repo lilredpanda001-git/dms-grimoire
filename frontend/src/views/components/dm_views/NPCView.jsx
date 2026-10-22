@@ -83,6 +83,13 @@ export default function NpcView({ activeCampaignId, onOpenScribe }) {
           {filteredNpcs.map((npc) => {
             const role = npc.role || npc.title || npc.class || npc.type || 'NPC';
             const description = npc.description || npc.lore || npc.personality || '';
+            const renderedImage = npc.aiMeta?.image?.rendered
+              ? npc.aiMeta.image.dataUrl || (
+                npc.aiMeta.image.imageBase64
+                  ? `data:image/png;base64,${npc.aiMeta.image.imageBase64}`
+                  : null
+              )
+              : null;
             const hpMax = Number(npc.hp?.max ?? npc.hpMax ?? npc.hp?.current ?? npc.hpCurrent ?? 10);
             const hpCurrent = Number(npc.hp?.current ?? npc.hpCurrent ?? hpMax);
             const hasHp = npc.hp !== undefined || npc.hpMax !== undefined || npc.hpCurrent !== undefined;
@@ -135,8 +142,17 @@ export default function NpcView({ activeCampaignId, onOpenScribe }) {
               </div>
 
               <div className="flex items-start gap-4 mb-4">
-                <div className="w-12 h-12 bg-parchment border border-parchment-dark text-grimoire-dark flex items-center justify-center rounded-full font-serif text-lg font-bold shrink-0">
+                <div className="relative w-12 h-12 bg-parchment border border-parchment-dark text-grimoire-dark flex items-center justify-center rounded-full font-serif text-lg font-bold shrink-0">
                   {npc.name.substring(0, 2).toUpperCase()}
+                  {renderedImage && (
+                    <img
+                      src={renderedImage}
+                      alt={`${npc.name} avatar`}
+                      loading="lazy"
+                      onError={(event) => { event.currentTarget.hidden = true; }}
+                      className="absolute w-12 h-12 rounded-full object-cover border border-parchment-dark"
+                    />
+                  )}
                 </div>
                 <div>
                   <h3 className="font-serif font-bold text-lg uppercase text-grimoire-dark leading-tight pr-12">{npc.name}</h3>
