@@ -143,7 +143,7 @@ export default function NpcView({ activeCampaignId, onOpenScribe }) {
 
               <div className="flex items-start gap-4 mb-4">
                 {renderedImage ? (
-                  <div className="w-20 h-20 shrink-0">
+                  <div className="w-20 h-20 shrink-0 overflow-hidden rounded-full border border-parchment-dark bg-parchment">
                     <img
                       src={renderedImage}
                       alt={`${npc.name} avatar`}
@@ -153,7 +153,7 @@ export default function NpcView({ activeCampaignId, onOpenScribe }) {
                         const fallback = event.currentTarget.nextElementSibling;
                         if (fallback) fallback.hidden = false;
                       }}
-                      className="h-full w-full object-contain"
+                      className="h-full w-full scale-150 object-cover object-[50%_20%]"
                     />
                     <span hidden className="w-12 h-12 bg-parchment border border-parchment-dark text-grimoire-dark flex items-center justify-center rounded-full font-serif text-lg font-bold">
                       {npc.name.substring(0, 2).toUpperCase()}
