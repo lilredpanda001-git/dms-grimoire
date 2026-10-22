@@ -142,18 +142,28 @@ export default function NpcView({ activeCampaignId, onOpenScribe }) {
               </div>
 
               <div className="flex items-start gap-4 mb-4">
-                <div className="relative w-12 h-12 bg-parchment border border-parchment-dark text-grimoire-dark flex items-center justify-center rounded-full font-serif text-lg font-bold shrink-0">
-                  {npc.name.substring(0, 2).toUpperCase()}
-                  {renderedImage && (
+                {renderedImage ? (
+                  <div className="w-20 h-20 shrink-0">
                     <img
                       src={renderedImage}
                       alt={`${npc.name} avatar`}
                       loading="lazy"
-                      onError={(event) => { event.currentTarget.hidden = true; }}
-                      className="absolute w-12 h-12 rounded-full object-cover border border-parchment-dark"
+                      onError={(event) => {
+                        event.currentTarget.hidden = true;
+                        const fallback = event.currentTarget.nextElementSibling;
+                        if (fallback) fallback.hidden = false;
+                      }}
+                      className="h-full w-full object-contain"
                     />
-                  )}
-                </div>
+                    <span hidden className="w-12 h-12 bg-parchment border border-parchment-dark text-grimoire-dark flex items-center justify-center rounded-full font-serif text-lg font-bold">
+                      {npc.name.substring(0, 2).toUpperCase()}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 bg-parchment border border-parchment-dark text-grimoire-dark flex items-center justify-center rounded-full font-serif text-lg font-bold shrink-0">
+                    {npc.name.substring(0, 2).toUpperCase()}
+                  </div>
+                )}
                 <div>
                   <h3 className="font-serif font-bold text-lg uppercase text-grimoire-dark leading-tight pr-12">{npc.name}</h3>
                   <p className="text-xs text-grimoire-gold font-bold uppercase tracking-wider">{role}</p>
